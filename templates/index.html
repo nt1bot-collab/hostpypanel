@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Python Bot Hosting 🐍</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/python/python.min.js"></script>
+  <style>
+    body { background:#111; color:white; font-family:monospace; padding:30px; text-align:center; }
+    h1 { font-size:28px; }
+    form { margin:10px; }
+    button { padding:8px 20px; background:#00c853; color:white; border:none; font-size:15px; cursor:pointer; margin:5px; }
+    button.stop { background:#e53935; }
+    #terminal {
+      background:#000;
+      color:#0f0;
+      text-align:left;
+      padding:15px;
+      margin-top:20px;
+      height:250px;
+      overflow:auto;
+      font-size:14px;
+      border:1px solid #333;
+    }
+    #file-list { margin-top:20px; }
+    .file-item { cursor:pointer; padding:5px; display:inline-block; background:#222; margin:3px; }
+    #editor-container { display:none; margin-top:20px; }
+    #editor { height:300px; text-align:left; }
+  </style>
+</head>
+<body>
+  <h1>🚀 Python Bot Hosting</h1>
+  <p>Status: <b>{{ status }}</b></p>
+
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".py" required>
+    <button type="submit">📤 Upload Bot</button>
+  </form>
+
+  <form action="/start" method="post">
+    <button type="submit">🟢 Start Bot</button>
+  </form>
+
+  <form action="/stop" method="post">
+    <button class="stop" type="submit">🔴 Stop Bot</button>
+  </form>
+
+  <h3>📂 Files</h3>
+  <div id="file-list">
+    {% for file in files %}
+      <div class="file-item" onclick="openEditor('{{ file }}')">{{ file }}</div>
+    {% endfor %}
+  </div>
+
+  <div id="editor-container">
+    <h3>✏️ Editing: <span id="editing-filename"></span></h3>
+    <textarea id="editor"></textarea><br>
+    <button onclick="saveFile()">💾 Save</button>
+  </div>
+
+  <div id="terminal"></div>
+
+  <script>
+    const socket = io();
+    const terminal = document.getElementById('terminal');
+    const editorEl = document.getElementById('editor');
+    const editorContainer = document.getElementById('editor-container');
+    const editingFile = document.getElementById('editing-filename');
+    let currentFile = null;
+
+    const editor = CodeMirror.fromTextArea(editorEl, {
+      lineNumbers: true,
+      mode: "python",
+      theme: "default"
+    });
+
+    socket.on('log', data => {
+      terminal.innerText += data;
+      terminal.scrollTop = terminal.scrollHeight;
+    });
+
+    function openEditor(filename) {
+      currentFile = filename;
+      editingFile.textContent = filename;
+      fetch(`/edit/${filename}`)
+        .then(r => r.json())
+        .then(data => {
+          editor.setValue(data.content);
+          editorContainer.style.display = 'block';
+        });
+    }
+
+    function saveFile() {
+      fetch(`/save/${currentFile}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: editor.getValue() })
+      }).then(r => r.json())
+        .then(() => alert("✅ File saved successfully!"));
+    }
+  </script>
+</body>
+</html>
